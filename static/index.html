@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>AI Emotional Audiobook Reader</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; min-height: 100vh; }
+    header { background: #1e293b; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    header h1 { margin: 0; font-size: 1.15rem; color: #38bdf8; }
+    .controls-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    select, input[type="file"] { background: #0f172a; color: #f8fafc; border: 1px solid #475569; padding: 7px 10px; border-radius: 8px; font-size: 0.9rem; }
+    button { background: #38bdf8; color: #0f172a; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.secondary { background: #334155; color: #f8fafc; }
+    button.danger { background: transparent; color: #94a3b8; padding: 4px 8px; font-size: 0.85rem; }
+    .workspace { display: flex; flex: 1; padding-bottom: 95px; }
+    aside { width: 290px; background: #162032; border-right: 1px solid #334155; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    aside.collapsed { display: none; }
+    aside h2 { margin: 0 0 4px; font-size: 0.95rem; text-transform: uppercase; color: #94a3b8; }
+    .book-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+    .book-item { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px; cursor: pointer; }
+    .book-item.active { border-color: #38bdf8; background: #24334d; }
+    .book-item-header { display: flex; justify-content: space-between; gap: 6px; }
+    .book-item-title { font-weight: 600; font-size: 0.95rem; }
+    .book-item-meta { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+    .progress-pill { display: inline-block; margin-top: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    main { flex: 1; max-width: 840px; width: 100%; margin: 24px auto; padding: 0 24px; }
+    .meta-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; color: #94a3b8; font-size: 0.95rem; gap: 12px; flex-wrap: wrap; }
+    .role-badge { background: #334155; color: #38bdf8; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+    .page-card { background: #1e293b; padding: 32px; border-radius: 14px; line-height: 1.9; font-size: 1.12rem; min-height: 360px; }
+    .seg { padding: 2px 5px; border-radius: 6px; cursor: pointer; }
+    .seg.active-narrator { background: rgba(56, 189, 248, 0.28); color: #fff; }
+    .seg.active-character { background: rgba(251, 191, 36, 0.28); color: #fef3c7; }
+    .status { color: #fbbf24; font-weight: 500; }
+    .player-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1e293b; border-top: 1px solid #334155; padding: 14px 24px; display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
+    audio { width: 320px; max-width: 100%; }
+    .jump-box { display: flex; align-items: center; gap: 6px; }
+    .jump-box input { width: 64px; padding: 6px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; text-align: center; }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(2, 6, 23, 0.65); z-index: 90; }
+    .sidebar-backdrop.open { display: block; }
+    @media (max-width: 768px) {
+      header { padding: 10px 14px; gap: 8px; }
+      header h1 { font-size: 1rem; }
+      .controls-top { width: 100%; }
+      .controls-top select { flex: 1 1 100%; font-size: 16px; min-height: 42px; }
+      .controls-top input[type="file"] { flex: 1 1 auto; min-width: 0; font-size: 14px; }
+      .controls-top button { min-height: 42px; white-space: nowrap; }
+      .workspace { padding-bottom: 165px; }
+      aside { position: fixed; top: 0; bottom: 0; left: 0; width: 82vw; max-width: 310px; z-index: 100; box-shadow: 8px 0 24px rgba(0,0,0,0.5); transition: transform 0.22s ease; }
+      aside.collapsed { display: flex; transform: translateX(-105%); }
+      main { margin: 14px auto; padding: 0 12px; }
+      .page-card { padding: 18px 16px; font-size: 1.05rem; line-height: 1.8; min-height: 240px; }
+      .player-bar { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 8px; z-index: 80; }
+      .player-bar button { min-height: 40px; padding: 8px 12px; font-size: 0.85rem; }
+      .player-bar audio { order: -1; width: 100%; height: 40px; }
+      .jump-box input, .jump-box select { font-size: 16px; min-height: 38px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <button class="secondary" onclick="toggleLibrary()">Library</button>
+      <h1>AI Emotional Audiobook Reader</h1>
+    </div>
+    <div class="controls-top">
+      <select id="voiceSelect" onchange="onVoiceChange()">
+        <option value="en-GB-SoniaNeural">British Female (Sonia)</option>
+        <option value="en-GB-RyanNeural">British Male (Ryan)</option>
+        <option value="en-US-AvaNeural">American Female (Ava)</option>
+        <option value="en-US-AndrewNeural">American Male (Andrew)</option>
+        <option value="en-IN-NeerjaNeural">Indian Female (Neerja)</option>
+        <option value="en-IN-PrabhatNeural">Indian Male (Prabhat)</option>
+        <option value="mr-IN-AarohiNeural">Marathi Female (Aarohi)</option>
+        <option value="mr-IN-ManoharNeural">Marathi Male (Manohar)</option>
+        <option value="hi-IN-SwaraNeural">Hindi Female (Swara)</option>
+        <option value="hi-IN-MadhurNeural">Hindi Male (Madhur)</option>
+      </select>
+      <input type="file" id="pdfInput" accept="application/pdf" />
+      <button onclick="uploadPDF()">Add Book</button>
+    </div>
+  </header>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleLibrary()"></div>
+  <div class="workspace">
+    <aside id="librarySidebar" class="collapsed">
+      <h2>My Saved Books</h2>
+      <div class="book-list" id="bookList"></div>
+    </aside>
+    <main>
+      <div class="meta-bar">
+        <span id="bookTitle">Select a saved book or upload a PDF!</span>
+        <div>
+          <span id="activeRoleBadge" class="role-badge" style="display:none;">Narrator</span>
+          <span id="statusText" class="status"></span>
+        </div>
+      </div>
+      <div class="page-card" id="pageText">Upload a PDF to begin listening.</div>
+    </main>
+  </div>
+  <div class="player-bar">
+    <button class="secondary" id="prevBtn" onclick="changePage(-1)" disabled>Prev Page</button>
+    <div class="jump-box">
+      <span>Page</span>
+      <input type="number" id="pageInput" min="1" value="1" onchange="jumpToPage()" />
+      <span id="totalPagesLabel">/ 0</span>
+    </div>
+    <button class="secondary" id="nextBtn" onclick="changePage(1)" disabled>Next Page</button>
+    <audio id="audioPlayer" controls></audio>
+    <div class="jump-box">
+      <span>Speed</span>
+      <select id="speedSelect" onchange="changeSpeed()" style="padding: 5px 8px;">
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1.0x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+        <option value="1.75">1.75x</option>
+        <option value="2">2.0x</option>
+      </select>
+    </div>
+    <label style="font-size: 0.9rem; color: #cbd5e1;"><input type="checkbox" id="autoAdvance" checked /> Auto-next</label>
+  </div>
+  <script>
+    let libraryBooks = [], currentBookId = null, loadToken = 0, prefetchedPages = new Map(), currentVoice = "en-GB-SoniaNeural", currentPage = 0, totalPages = 0, currentSegments = [], lastActiveId = -1, lastSavedTime = 0;
+    const audioPlayer = document.getElementById("audioPlayer"), statusText = document.getElementById("statusText"), roleBadge = document.getElementById("activeRoleBadge");
+    function toggleLibrary() {
+      const sb = document.getElementById("librarySidebar");
+      const bd = document.getElementById("sidebarBackdrop");
+      sb.classList.toggle("collapsed");
+      if (bd) bd.classList.toggle("open", !sb.classList.contains("collapsed"));
+    }
+    async function refreshLibrary(autoSelectLatest = false) {
+      const res = await fetch("/api/library");
+      if (!res.ok) { const errTxt = await res.text(); statusText.textContent = "Upload failed: " + errTxt; alert("Upload failed: " + errTxt); return; }
+        const data = await res.json();
+      libraryBooks = data.books || [];
+      renderLibraryList();
+      if (autoSelectLatest && libraryBooks.length > 0 && !currentBookId) {
+        const savedId = localStorage.getItem("lastActiveBookId");
+        const targetBook = libraryBooks.find((b) => b.book_id === savedId) || libraryBooks[0];
+        openBookFromLibrary(targetBook.book_id, false);
+      }
+    }
+    function renderLibraryList() {
+      const listEl = document.getElementById("bookList");
+      if (!libraryBooks.length) { listEl.innerHTML = "<div style=\"color:#64748b;font-size:0.9rem\">No saved books yet.</div>"; return; }
+      listEl.innerHTML = "";
+      libraryBooks.forEach((book) => {
+        const div = document.createElement("div");
+        div.className = "book-item" + (book.book_id === currentBookId ? " active" : "");
+        const pct = Math.round(((book.last_page + 1) / Math.max(1, book.total_pages)) * 100);
+        div.innerHTML = `<div class="book-item-header"><div class="book-item-title">${book.title}</div><button class="danger" onclick="deleteBook(event, '${book.book_id}')">✕</button></div><div class="book-item-meta">by ${book.author} (${book.gender})</div><div class="progress-pill">Page ${book.last_page + 1} / ${book.total_pages} (${pct}%)</div>`;
+        div.onclick = () => openBookFromLibrary(book.book_id, true);
+        listEl.appendChild(div);
+      });
+    }
+    async function deleteBook(e, bookId) {
+      e.stopPropagation();
+      await fetch(`/api/books/${bookId}`, { method: "DELETE" });
+      if (currentBookId === bookId) { currentBookId = null; document.getElementById("bookTitle").textContent = "Book removed."; document.getElementById("pageText").textContent = ""; audioPlayer.removeAttribute("src"); }
+      refreshLibrary(false);
+    }
+    function openBookFromLibrary(bookId, autoPlay = true) {
+      const book = libraryBooks.find((b) => b.book_id === bookId);
+      if (!book) return;
+      loadToken++;
+      audioPlayer.pause();
+      audioPlayer.removeAttribute("src");
+      audioPlayer.load();
+      currentSegments = [];
+      lastActiveId = -1;
+      document.getElementById("pageText").textContent = "Switching book...";
+      currentBookId = book.book_id; localStorage.setItem("lastActiveBookId", currentBookId);
+      totalPages = book.total_pages;
+      currentVoice = book.voice || (book.gender === "female" ? "en-GB-SoniaNeural" : "en-GB-RyanNeural");
+      document.getElementById("voiceSelect").value = currentVoice;
+      document.getElementById("bookTitle").textContent = `${book.title} — by ${book.author} (${book.gender} author)`;
+      document.getElementById("totalPagesLabel").textContent = `/ ${totalPages}`;
+      document.getElementById("pageInput").max = totalPages;
+      renderLibraryList();
+      if (window.innerWidth <= 768) {
+        document.getElementById("librarySidebar").classList.add("collapsed");
+        const bd = document.getElementById("sidebarBackdrop");
+        if (bd) bd.classList.remove("open");
+      }
+      loadPage(book.last_page || 0, autoPlay, book.last_position || 0);
+    }
+    async function uploadPDF() {
+      const fileInput = document.getElementById("pdfInput");
+      if (!fileInput.files.length) return alert("Choose a PDF file first!");
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      statusText.textContent = "Detecting author & adding book...";
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const newBook = await res.json();
+      fileInput.value = "";
+      await refreshLibrary(false);
+      openBookFromLibrary(newBook.book_id, false);
+    }
+    async function saveProgress(pageNum, position = 0.0) {
+      if (!currentBookId) return;
+      await fetch(`/api/books/${currentBookId}/progress`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page_num: pageNum, position: position, voice: currentVoice }) });
+      const book = libraryBooks.find((b) => b.book_id === currentBookId);
+      if (book) { book.last_page = pageNum; book.last_position = position; book.voice = currentVoice; renderLibraryList(); }
+    }
+    function renderHighlightedText(segments, fallbackText) {
+      const container = document.getElementById("pageText");
+      container.innerHTML = "";
+      currentSegments = segments || [];
+      lastActiveId = -1;
+      if (!currentSegments.length) { container.textContent = fallbackText || "[No readable text on this page — click Next Page!]"; return; }
+      currentSegments.forEach((seg) => {
+        const span = document.createElement("span");
+        span.className = "seg"; span.id = `seg-${seg.id}`; span.textContent = seg.text + " ";
+        span.onclick = () => { audioPlayer.currentTime = seg.start; audioPlayer.play(); };
+        container.appendChild(span);
+      });
+    }
+    async function prefetchNextPage(bookId, nextPage, voice) {
+      if (!bookId || nextPage < 0 || nextPage >= totalPages) return;
+      const key = `${bookId}:${nextPage}:${voice}`;
+      if (prefetchedPages.has(key)) return;
+      const promise = (async () => {
+        const res = await fetch(`/api/books/${bookId}/page/${nextPage}?voice=${encodeURIComponent(voice)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.has_audio && data.audio_url) {
+          const audioRes = await fetch(`${data.audio_url}&t=${Date.now()}`);
+          if (audioRes.ok) {
+            const blob = await audioRes.blob();
+            data.blobUrl = URL.createObjectURL(blob);
+          }
+        }
+        return data;
+      })().catch((err) => {
+        prefetchedPages.delete(key);
+        return null;
+      });
+      prefetchedPages.set(key, promise);
+    }
+
+    async function loadPage(pageNum, autoPlay = true, resumeSeconds = 0) {
+      if (!currentBookId || pageNum < 0 || pageNum >= totalPages) return;
+      const myToken = ++loadToken;
+      const targetBookId = currentBookId;
+      audioPlayer.pause();
+      currentPage = pageNum; lastSavedTime = 0;
+      document.getElementById("pageInput").value = currentPage + 1;
+      document.getElementById("prevBtn").disabled = currentPage === 0;
+      document.getElementById("nextBtn").disabled = currentPage >= totalPages - 1;
+      roleBadge.style.display = "none";
+      statusText.textContent = `Generating Page ${currentPage + 1} (${currentVoice})...`;
+      saveProgress(currentPage, resumeSeconds);
+      let data;
+      const cacheKey = `${targetBookId}:${currentPage}:${currentVoice}`;
+      try {
+        if (prefetchedPages.has(cacheKey)) {
+          data = await prefetchedPages.get(cacheKey);
+          prefetchedPages.delete(cacheKey);
+        }
+        if (!data) {
+          const res = await fetch(`/api/books/${targetBookId}/page/${currentPage}?voice=${encodeURIComponent(currentVoice)}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+          data = await res.json();
+        }
+      } catch (err) {
+        statusText.textContent = "Error loading page";
+        document.getElementById("pageText").textContent = "Failed to load page: " + err.message;
+        return;
+      }
+      if (myToken !== loadToken || currentBookId !== targetBookId) return;
+      renderHighlightedText(data.segments, data.text);
+      if (currentPage + 1 < totalPages) {
+        prefetchNextPage(targetBookId, currentPage + 1, data.voice_used || currentVoice);
+      }
+      if (data.has_audio) {
+        statusText.textContent = `Voice: ${data.voice_used} (${data.segments.length} segments)`;
+        audioPlayer.src = data.blobUrl || `${data.audio_url}&t=${Date.now()}`;
+        audioPlayer.playbackRate = parseFloat(document.getElementById("speedSelect").value);
+        if (resumeSeconds > 0) audioPlayer.currentTime = resumeSeconds;
+        if (autoPlay) {
+          audioPlayer.play().catch((err) => {
+            console.warn("Autoplay blocked:", err);
+            statusText.textContent = "Click Play ▶ on the bottom bar to start audio";
+          });
+        }
+      } else {
+        statusText.textContent = "Blank/image page — skipping...";
+        audioPlayer.removeAttribute("src");
+        if (autoPlay && currentPage + 1 < totalPages) setTimeout(() => loadPage(currentPage + 1, true, 0), 1000);
+      }
+    }
+    function onVoiceChange() { currentVoice = document.getElementById("voiceSelect").value; if (currentBookId !== null) loadPage(currentPage, !audioPlayer.paused, 0); }
+    function changePage(d) { loadPage(currentPage + d, true, 0); }
+    function jumpToPage() { const t = parseInt(document.getElementById("pageInput").value, 10) - 1; if (!isNaN(t)) loadPage(t, true, 0); }
+    function changeSpeed() { audioPlayer.playbackRate = parseFloat(document.getElementById("speedSelect").value); }
+    audioPlayer.addEventListener("timeupdate", () => {
+      const now = audioPlayer.currentTime;
+      if (currentBookId && Math.abs(now - lastSavedTime) >= 5) { lastSavedTime = now; saveProgress(currentPage, now); }
+      if (!currentSegments.length) return;
+      const active = currentSegments.find((s) => now >= s.start && now <= s.end) || currentSegments.findLast((s) => now >= s.start);
+      if (active && active.id !== lastActiveId) {
+        if (lastActiveId !== -1) { const p = document.getElementById(`seg-${lastActiveId}`); if (p) p.classList.remove("active-narrator", "active-character"); }
+        const c = document.getElementById(`seg-${active.id}`);
+        if (c) { const isChar = active.role !== "Narrator"; c.classList.add(isChar ? "active-character" : "active-narrator"); c.scrollIntoView({ behavior: "smooth", block: "center" }); roleBadge.style.display = "inline-block"; roleBadge.textContent = active.role; roleBadge.style.color = isChar ? "#fbbf24" : "#38bdf8"; }
+        lastActiveId = active.id;
+      }
+    });
+    audioPlayer.addEventListener("ended", () => {
+      const autoBox = document.getElementById("autoAdvance");
+      const shouldAdvance = autoBox ? autoBox.checked : true;
+      if (shouldAdvance && currentBookId && currentPage + 1 < totalPages) {
+        loadPage(currentPage + 1, true, 0);
+      }
+    });
+    audioPlayer.addEventListener("pause", () => {
+      if (currentBookId && !audioPlayer.ended) {
+        saveProgress(currentPage, audioPlayer.currentTime || 0);
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (currentBookId) {
+        const payload = JSON.stringify({
+          page_num: currentPage,
+          position: audioPlayer.currentTime || 0,
+          voice: currentVoice
+        });
+        navigator.sendBeacon(`/api/books/${currentBookId}/progress`, new Blob([payload], { type: "application/json" }));
+      }
+    });
+
+    function updateMediaSession() {
+      if (!("mediaSession" in navigator) || !currentBookId) return;
+      const book = libraryBooks.find((b) => b.book_id === currentBookId);
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: book ? `${book.title} (Page ${currentPage + 1}/${totalPages})` : `Page ${currentPage + 1}`,
+        artist: book ? book.author : "AI Audiobook Reader",
+        album: "AI Emotional Audiobook Reader"
+      });
+      navigator.mediaSession.setActionHandler("play", () => audioPlayer.play());
+      navigator.mediaSession.setActionHandler("pause", () => audioPlayer.pause());
+      navigator.mediaSession.setActionHandler("previoustrack", () => { if (currentPage > 0) changePage(-1); });
+      navigator.mediaSession.setActionHandler("nexttrack", () => { if (currentPage + 1 < totalPages) changePage(1); });
+    }
+    audioPlayer.addEventListener("play", updateMediaSession);
+
+    refreshLibrary(true);
+  </script>
+</body>
+</html>
